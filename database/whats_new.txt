@@ -1,0 +1,20 @@
+
+2024 09 19
+------------------
+	New 'Value' field in table 'MaterialPropertyLink'
+	Exchanging names of tables 'OperationPropertyClass' and 'OperationPropertyLink 
+	Renaming field 'ID' to 'ClassID' in OperationPropertyLink'
+
+2024 09 17
+------------------
+	New 'Duedate' field in table 'Demand'
+	New 'Mass' field in table 'Material'
+	New tables 'MaterialProperty' and 'MaterialPropertyLink'
+	New tables 'OperationProperty', 'OperationPropertyClass' and 'OperationPropertyLink'
+	New 'OperationPropertyID' fields in tables 'ProducedMaterial', 'DisassembledMaterial', 'DistributionCenter', 'CollectionCenter' and 'TransportMode'
+	Removed fields 'Emission' and 'EnergyConsumption' from tables 'ProducedMaterial', 'DisassembledMaterial' and 'TransportMode'
+	Removed field 'EnergyConsumption' from tables 'DistributionCenter' and 'CollectionCenter'
+
+2024 04 24
+------------------
+	New 'Price' field in table 'Inventory'
