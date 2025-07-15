@@ -88,24 +88,36 @@ class DataStructure:
     def read_transport_modes(self, cursor, properties):
         cursor.execute('SELECT * FROM TransportMode')
         for name, fixedcost, distancecost, time, disturbanceid, property_id in cursor.fetchall():
-            self.transport_modes[name] = TransportMode(name, fixedcost, distancecost, time, self.disturbances[disturbanceid], properties[property_id])
+            disturbance = None
+            if disturbanceid is not None:
+                disturbance = self.disturbances[disturbanceid]
+            self.transport_modes[name] = TransportMode(name, fixedcost, distancecost, time, disturbance, properties[property_id])
 
     def read_network_nodes(self, cursor, properties):
         cursor.execute('SELECT * FROM NetworkNode')
         for name, latitude, longitude, costcenter, disturbanceid in cursor.fetchall():
-            self.network_nodes[name] = NetworkNode(name, latitude, longitude, costcenter, self.disturbances[disturbanceid])
+            disturbance = None
+            if disturbanceid is not None:
+                disturbance = self.disturbances[disturbanceid]
+            self.network_nodes[name] = NetworkNode(name, latitude, longitude, costcenter, disturbance)
         cursor.execute('SELECT * FROM ProductionSite')
         for name, capacity in cursor.fetchall():
             self.network_nodes[name] = ProductionSite(self.network_nodes[name], capacity)
         cursor.execute('SELECT * FROM DistributionCenter')
         for name, capacity, property_id in cursor.fetchall():
-            self.network_nodes[name] = DistributionCenter(self.network_nodes[name], capacity, properties[property_id])
+            property = None
+            if property_id is not None:
+                property = properties[property_id]
+            self.network_nodes[name] = DistributionCenter(self.network_nodes[name], capacity, property)
         cursor.execute('SELECT * FROM Customer')
         for name, in cursor.fetchall():
             self.network_nodes[name] = Customer(self.network_nodes[name])
         cursor.execute('SELECT * FROM CollectionCenter')
         for name, capacity, property_id in cursor.fetchall():
-            self.network_nodes[name] = CollectionCenter(self.network_nodes[name], capacity, properties[property_id])
+            property = None
+            if property_id is not None:
+                property = properties[property_id]
+            self.network_nodes[name] = CollectionCenter(self.network_nodes[name], capacity, property)
         cursor.execute('SELECT * FROM RecoveryPlant')
         for name, capacity in cursor.fetchall():
             self.network_nodes[name] = RecoveryPlant(self.network_nodes[name], capacity)
@@ -246,7 +258,7 @@ class TransportMode:
     def get_disturbance(self, isloss):
         duration = 0
         loss = 0
-        if random.random() < self.disturbance.probability:
+        if self.disturbance is not None and random.random() < self.disturbance.probability:
             duration = distribution.random_from_distribution(self.disturbance.duration)
             if isloss:
                 loss = self.disturbance.loss

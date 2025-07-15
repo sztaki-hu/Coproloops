@@ -112,27 +112,38 @@ def show_dashboard(nodes, summary):
         invs.append(invplot)
     # Summary table
     summary_tables = []
+    costcenters = dict()
+    node_costcenter = []
+    i = 0 # cost center number
     for node in nodes.values():
-        kpis = ['Cost', 'Income', 'Profit']
-        vals = [round(summary[node.name]['cost'], 2), round(summary[node.name]['income'], 2),
-                round(summary[node.name]['income'] - summary[node.name]['cost'], 2)] if node.name in summary.keys() else [0, 0, 0]
-        for prop in Log.properties:
-            kpis.append(prop)
-            vals.append(round(summary[node.name][prop], 2) if node.name in summary.keys() else 0)
-        temp_table = {'KPI': kpis, 'Value': vals}
-        summary_source = ColumnDataSource(pd.DataFrame(temp_table))
-        summary_columns = [
-            TableColumn(field='KPI', title='KPI'),
-            TableColumn(field='Value', title='Value'),
-        ]
-        summary_table = DataTable(source=summary_source, columns=summary_columns)
-        summary_table.visible = False
-        summary_tables.append(summary_table)
+        if node.costcenter is None:
+            node_costcenter.append(None)
+        elif node.costcenter not in costcenters.keys():
+            costcenters[node.costcenter] = i
+            node_costcenter.append(i)
+            i += 1
+            kpis = ['Cost', 'Income', 'Profit']
+            vals = [round(summary[node.costcenter]['cost'], 2), round(summary[node.costcenter]['income'], 2),
+                    round(summary[node.costcenter]['income'] - summary[node.costcenter]['cost'], 2)] if node.costcenter in summary.keys() else [0, 0, 0]
+            for prop in Log.properties:
+                kpis.append(prop)
+                vals.append(round(summary[node.costcenter][prop], 2) if node.costcenter in summary.keys() else 0)
+            temp_table = {'KPI': kpis, 'Value': vals}
+            summary_source = ColumnDataSource(pd.DataFrame(temp_table))
+            summary_columns = [
+                TableColumn(field='KPI', title='KPI ' + node.costcenter),
+                TableColumn(field='Value', title='Value'),
+            ]
+            summary_table = DataTable(source=summary_source, columns=summary_columns)
+            summary_table.visible = False
+            summary_tables.append(summary_table)
+        else:
+            node_costcenter.append(costcenters[node.costcenter])
 
 
     network_map.js_on_event('selectiongeometry', CustomJS(args=dict(feat=features, src=geo_source, invs=invs, summary_tables=summary_tables,
                                                           from_routes=from_routes, to_routes=to_routes,
-                                                          source=line_source), code="""
+                                                          source=line_source, node_costcenter=node_costcenter), code="""
         // the event that triggered the callback is cb_obj:
         // The event type determines the relevant attributes
         // console.log('Selection event occurred at : ' + JSON.stringify(cb_obj.geometry))
@@ -147,7 +158,10 @@ def show_dashboard(nodes, summary):
         }
         for (let i=0; i<src.selected.indices.length; ++i) {
             //invs[src.selected.indices[i]].visible = true
-            summary_tables[src.selected.indices[i]].visible = true
+            //summary_tables[src.selected.indices[i]].visible = true
+            if (node_costcenter[src.selected.indices[i]] != null) {
+                summary_tables[node_costcenter[src.selected.indices[i]]].visible = true
+            }
             for (let j=0; j<from_routes[src.selected.indices[i]].length; ++j) {
                 source.data['color'][from_routes[src.selected.indices[i]][j]] = 'blue'
             }

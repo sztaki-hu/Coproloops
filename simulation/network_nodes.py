@@ -95,7 +95,7 @@ class NetworkNode:
     def get_disturbance(self):
         duration = 0
         loss = 0
-        if random.random() < self.disturbance.probability:
+        if self.disturbance is not None and random.random() < self.disturbance.probability:
             duration = distribution.random_from_distribution(self.disturbance.duration)
             loss = self.disturbance.loss
         return duration, loss
