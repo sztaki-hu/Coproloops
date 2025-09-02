@@ -7,6 +7,7 @@ Revision history:
 Date            Author          Comment
 ----------------------------------------------------------
 29/11/2024      Egri            Initial version
+02/09/2025      Egri            First public version
 """
 
 import random
@@ -18,6 +19,8 @@ import customer
 import recovery_plant
 from log import Log, LogType
 
+# For debugging
+PRINT_EVENT_TIMES = False
 
 class Order:
     def __init__(self, customer, material, quantity, route):
@@ -108,9 +111,6 @@ class NetworkNode:
 
     def get_inventory_position(self, material):
         inventory = self.inventory[material]['quantity']
-        for order in self.open_customer_orders:
-            if order.material == material:
-                inventory -= order.quantity
         if material in self.inventory_position_correction.keys():
             inventory += self.inventory_position_correction[material]
         return inventory
@@ -221,14 +221,14 @@ class ProductionSite(NetworkNode):
                                 data.network_nodes[supplier_route.source].order_management(order, data)
             self.correct_inventory_position(material, production_quantity)
             if canproduce:
+                self.decreaseInventory(material, production_quantity, data)
                 data.env.process(self.production(material, production_quantity, data))
             else:
                 order = Order(self, material, production_quantity, None)
                 self.open_production_orders.append(order)
 
-    def production(self, material, quantity, data):
-        """ Producing materials """
-        Log.log(data, self.name, LogType.PRODUCTION_START, quantity, material, None, None, None, None, None, None)
+
+    def decreaseInventory(self, material, quantity, data):
         for component in data.materials[material].bom.keys():
             component_quantity = data.materials[material].bom[component] * quantity
             # Each component should have enough inventory at this point!
@@ -236,6 +236,11 @@ class ProductionSite(NetworkNode):
                 raise Exception('Not enough %s at %s: %s/%s' % (component, self.name, self.inventory[component]['quantity'], component_quantity))
             self.change_inventory(component, -component_quantity, data)
             self.correct_inventory_position(component, component_quantity)
+
+
+    def production(self, material, quantity, data):
+        """ Producing materials """
+        Log.log(data, self.name, LogType.PRODUCTION_START, quantity, material, None, None, None, None, None, None)
         duration, loss = self.get_disturbance()
         if duration > 0:
             Log.log(data, self.name, LogType.DISTURBANCE, round(quantity * loss), material, None, None, None, None, None, 'Production')
@@ -281,6 +286,7 @@ class ProductionSite(NetworkNode):
                     canproduce = False
             if canproduce:
                 self.open_production_orders.remove(order)
+                self.decreaseInventory(order.material, order.quantity, data)
                 data.env.process(self.production(order.material, order.quantity, data))
 
 
@@ -391,6 +397,13 @@ class Customer(NetworkNode):
                         Log.log(data, self.name, LogType.RETURN, order.quantity, order.material, order.customer.name, None, None, None, None, None)
                         data.env.process(self.delivery(order, data, True))
             yield data.env.timeout(demand.frequency)
+            # Print times for debugging
+            if PRINT_EVENT_TIMES:
+                if data.env.now != data.lastday:
+                    if data.env.now % 50 == 0:
+                        print()
+                    print(data.env.now, end=' ')
+                    data.lastday = data.env.now
 
     def start(self, data):
         """ Starting the demand generating loop """
@@ -450,9 +463,14 @@ class RecoveryPlant(NetworkNode):
         self.capacity = capacity
         self.disassembled_materials = dict()
 
+
+    def decreaseInventory(self, material, quantity, data):
+        self.change_inventory(material, -quantity, data)
+
+
     def disassembly(self, material, quantity, data):
         """ Disassembling the given quantity of the materials """
-        self.change_inventory(material, -quantity, data)
+        # self.change_inventory(material, -quantity, data)
         Log.log(data, self.name, LogType.DISASSEMBLY_START, quantity, material, None, None, None, None, None,None)
         yield data.env.timeout(self.disassembled_materials[material].time)
         cost = self.disassembled_materials[material].cost * quantity
@@ -464,6 +482,24 @@ class RecoveryPlant(NetworkNode):
         for component in self.disassembled_materials[material].inverse_bom.keys():
             qty = distribution.generate_disassembly_quantity(self.disassembled_materials[material].inverse_bom[component].quantity_distribution, quantity)
             self.change_inventory(component, qty, data)
+        self.check_open_customer_orders(data)
+
+
+    def check_open_customer_orders(self, data):
+        """ Satisfying customer order if possible """
+        delivery = True
+        while delivery:
+            delivery = False
+            for order in self.open_customer_orders[:]:
+                inventory = self.inventory[order.material]['quantity']
+                # if inventory >= order.quantity and self.get_inventory_position(order.material) >= 0:
+                if inventory >= order.quantity:
+                    self.change_inventory(order.material, -order.quantity, data)
+                    self.correct_inventory_position(order.material, order.quantity)
+                    self.open_customer_orders.remove(order)
+                    delivery = True
+                    data.env.process(self.delivery(order, data, False))
+
 
     def shipment_receive(self, material, quantity, data):
         """ Receiving returned materials and starting disassembly if necessary """
@@ -471,6 +507,7 @@ class RecoveryPlant(NetworkNode):
         self.add_demand_history(material, quantity, data.env.now)
         qty = recovery_plant.disassembly_quantity(self, self.demand_history[material], self.inventory[material]['quantity'])
         if qty > 0:
+            self.decreaseInventory(material, qty, data)
             data.env.process(self.disassembly(material, qty, data))
 
     def order_management(self, order, data):
@@ -478,8 +515,11 @@ class RecoveryPlant(NetworkNode):
         price = self.inventory[order.material]['price'] * order.quantity
         Log.log(data, self.name, LogType.INCOME, order.quantity, order.material, order.customer.name, None, price, self.costcenter, None, None)
         if self.inventory[order.material]['quantity'] < order.quantity:
-            raise Exception('Not enough inventory in the recovery plant')
-        self.change_inventory(order.material, -order.quantity, data)
-        data.env.process(self.delivery(order, data, False))
+            # raise Exception('Not enough inventory in the recovery plant')
+            self.correct_inventory_position(order.material, -order.quantity)
+            self.open_customer_orders.append(order)
+        else:
+            self.change_inventory(order.material, -order.quantity, data)
+            data.env.process(self.delivery(order, data, False))
 
 

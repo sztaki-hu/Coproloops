@@ -7,6 +7,7 @@ Revision history:
 Date            Author          Comment
 ----------------------------------------------------------
 29/11/2024      Egri            Initial version
+02/09/2025      Egri            First public version
 """
 
 from math import radians, cos, sin, asin, sqrt
@@ -31,6 +32,8 @@ class DataStructure:
         self.transport_modes = dict()
         self.node_distances = dict()
         self.read_all(database)
+        # The last day printed for debugging purposes
+        self.lastday = None
 
     def read_all(self, database):
         conn = sqlite3.connect(database)

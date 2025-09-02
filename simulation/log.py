@@ -7,6 +7,7 @@ Revision history:
 Date            Author          Comment
 ----------------------------------------------------------
 29/11/2024      Egri            Initial version
+02/09/2025      Egri            First public version
 """
 
 import datetime
@@ -101,6 +102,41 @@ class Log:
             str(costcenter).ljust(15) + \
             props + \
             str(self.comment if self.comment is not None else '')
+
+
+    @classmethod
+    def save_log(cls, filename):
+        file = open(filename, 'w')
+        s = 'Date,Node,Node type,Event,Quantity,Material,Node2,Mode,Cost,Cost center'
+        for p in cls.properties:
+            s += ',' + p
+        s += ',Comment'
+        file.write(s + '\n')
+        for log in cls.logs:
+            props = ''
+            for p in Log.properties:
+                if p in log.properties.keys():
+                    props += ',' + str(round(log.properties[p], 2))
+                else:
+                    props += ','
+            cost = log.cost if log.cost is not None else ''
+            node = log.node if log.node is not None else ''
+            node2 = log.node2 if log.node2 is not None else ''
+            costcenter = log.costcenter if log.costcenter is not None else ''
+            s = str(log.time) + \
+                ',' + str(node) + \
+                ',' + str(log.node_type) + \
+                ',' + str(log.type.name) + \
+                ',' + str(log.quantity) + \
+                ',' + str(log.material) + \
+                ',' + str(node2) + \
+                ',' + str(log.mode if log.mode is not None else '') + \
+                ',' + str(cost) + \
+                ',' + str(costcenter) + \
+                props + \
+                ',' + str(log.comment if log.comment is not None else '')
+            file.write(s + '\n')
+        file.close()
 
 
     @classmethod
