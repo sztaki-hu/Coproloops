@@ -1,4 +1,4 @@
-# ![Coprologs Logo](documentation/oic/logo.png) Coproloops
+# ![Coprologs Logo](documentation/pic/logo.png) Coproloops
 
 ## About
 The COPROLOOPS simulation system is aimed at modeling and simulating
